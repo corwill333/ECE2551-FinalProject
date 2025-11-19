@@ -1,17 +1,19 @@
 # ECE2551 - Final Morse Beeper Project
+### All libraries are already included (/lib).
+Collaborative repository for the ECE2551 final project
+Morse code generator - Encodes/decodes text to morse and produces audible beeps.
 
-Simple repository for the ECE2551 final project: a Morse code generator that converts text to Morse and produces audible beeps.
-
-## Description
-
-Converts input text into Morse code and outputs corresponding beeps (software or embedded implementation). Intended as a course final project; includes source, build instructions, and examples.
+## Team Members:
+1. Corbin Williams
+2. Robert Garner
+3. Equento Ruch
+4. Troy Stephens
+5. Terence Lee
 
 ## Project structure
+ TBD
 
-- src/ — source code (scripts or firmware)
-- docs/ — documentation and design notes
-- examples/ — example inputs and usage
-- Makefile / build/ — build scripts and artifacts
+
 
 # .gitignore NOTE:
 
