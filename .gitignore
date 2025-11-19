@@ -3,6 +3,8 @@
 !*/
 
 # Include these directories and their contents
+!.git/
+!.git/**
 !src/
 !src/**
 !include/
