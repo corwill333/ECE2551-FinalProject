@@ -12,3 +12,27 @@ Converts input text into Morse code and outputs corresponding beeps (software or
 - docs/ — documentation and design notes
 - examples/ — example inputs and usage
 - Makefile / build/ — build scripts and artifacts
+
+# .gitignore NOTE:
+
+All files are excluded by default unless in these folders and files in root directory:
+
+### Include these directories and their contents
+
+!src/
+!src/**
+!include/
+!include/**
+!lib/
+!lib/**
+!test/
+!test/**
+!\_Instructions/
+!\_Instructions/\*\*
+
+### Include these files
+
+!platformio.ini
+!.gitignore
+!README
+!README.md
