@@ -16,13 +16,14 @@ Buzzer mybuzzer(4);
 EntropyClass myentropy();
 
 //Hint: try coding first with hard wired name and uuid and then make it random (in case randomizing gives you any error).
-//char you_name[10] = {'y','o','u',' ',' ',' ',' ',' ',' ',' '};
-//uint8_t you_uuid[5] = {'0','1','A','1','3'};
+char you_name[10] = {'Y','O','U',' ',' ',' ',' ',' ',' ',' '};
+
+// Treat UUID as 5 arbitrary bytes
+uint8_t you_uuid[5] = {'0','1','A','1','3'};
+
 Contact me(you_uuid,you_name);
 
 Memory memory(me);
-
-
 
 
 RF24 myradio(A1,A2);
