@@ -16,6 +16,7 @@ Buzzer mybuzzer(4);  // Buzzer on pin 4
 
 // Generate UUID at runtime using Entropy
 uint8_t nodeUUID[Contact::UUID_LEN];
+
 //Hint: try coding first with hard wired name and uuid and then make it random (in case randomizing gives you any error).
 char nodeName[10] = {'Y','O','U',' ',' ',' ',' ',' ',' ',' '};
 
@@ -81,7 +82,7 @@ void initRadio() {
     myradio.setDataRate(RF24_250KBPS);
     myradio.setChannel(100);
 
-    // Use our node UUID as the reading address (5 bytes) :contentReference[oaicite:5]{index=5}
+    // Use our node UUID as the reading address (5 bytes) 
     myradio.openReadingPipe(1, nodeUUID);
     myradio.startListening();
 
@@ -109,7 +110,7 @@ void setup() {
     delay(1500);
     myscreen.clear();
 
-    // --- Generate random UUID using Entropy --- :contentReference[oaicite:6]{index=6}
+    // --- Generate random UUID using Entropy --- 
     Entropy.initialize();
     for (uint8_t i = 0; i < Contact::UUID_LEN; ++i) {
         nodeUUID[i] = Entropy.randomByte();
@@ -119,7 +120,7 @@ void setup() {
     me.setUUID(nodeUUID);
     me.setName(nodeName);
 
-    // --- Initialize EEPROM schema (flags, node contact, counters) --- :contentReference[oaicite:7]{index=7}
+    // --- Initialize EEPROM schema (flags, node contact, counters) 
     if (!memory.hasSchema()) {
         memory.setSchema();
         memory.clearContacts();
@@ -149,21 +150,30 @@ void loop() {
     // ------------ 1) Handle radio receive (stub for now) ------------
 
     if (myradio.available()) {
-        // When Message.cpp is complete, you can use Message here.
-        // For now, just flush the buffer and notify user.
-        uint8_t dummyBuf[32];
+        Message incoming;
+        
+        // Read latest message object from the radio
         while (myradio.available()) {
-            myradio.read(&dummyBuf, sizeof(dummyBuf));
+            myradio.read(&incoming, sizeof(Message));
         }
 
+        // Decode Morse payload to a string 
+        char* text = incoming.getPayloadString();
+
+        // Display on LCD
         myscreen.clear();
         myscreen.setCursor(0, 0);
         myscreen.print("Msg received!");
         mybuzzer.bselect();
 
-        Serial.println("Radio data received (demo).");
+        Serial.println("Radio data received.");
 
         delay(1500);
+
+        // Free allocated string to avoid memory leak
+        delete[] text;
+
+        // Return idle screen
         myscreen.clear();
         myscreen.setCursor(0, 0);
         myscreen.print("Press buttons");
@@ -171,7 +181,7 @@ void loop() {
         myscreen.print("SEL=demo");
     }
 
-    // ------------ 2) Handle buttons via LCD.getButtonPress() ------------ :contentReference[oaicite:8]{index=8}
+    // ------------ 2) Handle buttons via LCD.getButtonPress() ------------ 
 
     Button b = myscreen.getButtonPress();
 
@@ -193,7 +203,7 @@ void loop() {
             break;
 
         case UP: {
-            // Show counts using Memory (once implemented) :contentReference[oaicite:9]{index=9}
+            // Show counts using Memory (once implemented) 
             unsigned short numContacts  = memory.getNumberContacts();
             unsigned short numMessages  = memory.getNumberMessages();
             char buf[17];
@@ -208,13 +218,31 @@ void loop() {
             mybuzzer.bback();
             break;
 
-        case SELECT:
-            // SELECT will eventually be "send message / enter menu".
-            // For now, we just give feedback.
-            myscreen.print("SELECT");
-            mybuzzer.bselect();
-            // Later: create Message and send via RF24 here.
-            break;
+        case SELECT: {
+    myscreen.print("Sending...");
+    mybuzzer.bselect();
+
+    const char* morse = ".-.-";   // test message
+
+    Message msg(nodeUUID, peerUUID, morse);
+
+    myradio.stopListening();
+    myradio.openWritingPipe(peerUUID);
+    bool ok = myradio.write(&msg, sizeof(Message));
+    myradio.startListening();
+
+    myscreen.clear();
+    myscreen.setCursor(0,0);
+    myscreen.print(ok ? "Sent OK" : "Send FAIL");
+    delay(1500);
+
+    myscreen.clear();
+    myscreen.setCursor(0, 0);
+    myscreen.print("Press buttons");
+    myscreen.setCursor(0, 1);
+    myscreen.print("SEL=demo");
+    break;
+}
 
         case NONE:
         default:
