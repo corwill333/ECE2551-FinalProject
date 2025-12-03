@@ -11,43 +11,216 @@
 #include <SPI.h>
 #include "buzzer.h"
 
+LCD myscreen;  // Create LCD object
+Buzzer mybuzzer(4);  // Buzzer on pin 4
 
-Buzzer mybuzzer(4);
-EntropyClass myentropy();
-
+// Generate UUID at runtime using Entropy
+uint8_t nodeUUID[Contact::UUID_LEN];
 //Hint: try coding first with hard wired name and uuid and then make it random (in case randomizing gives you any error).
-char you_name[10] = {'Y','O','U',' ',' ',' ',' ',' ',' ',' '};
+char nodeName[10] = {'Y','O','U',' ',' ',' ',' ',' ',' ',' '};
 
-// Treat UUID as 5 arbitrary bytes
-uint8_t you_uuid[5] = {'0','1','A','1','3'};
+Contact me;              // default-constructed, we’ll set name + UUID in setup
+Memory  memory;          // default-constructed, schema handled in setup
 
-Contact me(you_uuid,you_name);
-
-Memory memory(me);
-
-
+// RF24 radio on CE=A1, CSN=A2
 RF24 myradio(A1,A2);
-//const byte add[][6] = {"N1" , "N2"}; Pipe address
+
+// For early testing you can use a fixed peer address (another board)
+uint8_t peerUUID[Message::UUID_LENGTH] = {0xDE, 0xAD, 0xBE, 0xEF, 0x01};
 
 
+// ----------------- Helper: show name + UUID -----------------
 
-void setup(){
-  Serial.begin(9600);
-  myscreen.begin(16,2);
-  myscreen.setCursor(0,0);
-  myscreen.print("Welcome!");
-  myscreen.setCursor(0,1);
+void showIdentity() {
+    myscreen.clear();
+    myscreen.setCursor(0, 0);
+    myscreen.print("Name:");
+    for (uint8_t i = 0; i < Contact::NAME_LEN; ++i) {
+        myscreen.print(nodeName[i]);
+    }
 
+    myscreen.setCursor(0, 1);
+    myscreen.print("UUID:");
 
-myradio.setPALevel(RF24_PA_LOW);
-myradio.setDataRate(RF24_250KBPS);
-myradio.setChannel(100);
-myradio.openReadingPipe(1, add[0]);   
-//Other  useful function for radio is myradio.openWritingPipe(); mytadio.stopListenting(); myradio.read(); myradio.write(); myradio.begin()
-myradio.startListening();
+    Serial.print("Node name: ");
+    for (uint8_t i = 0; i < Contact::NAME_LEN; ++i) {
+        Serial.print(nodeName[i]);
+    }
+    Serial.println();
+
+    Serial.print("Node UUID: 0x");
+    for (uint8_t i = 0; i < Contact::UUID_LEN; ++i) {
+        if (nodeUUID[i] < 0x10) Serial.print('0');
+        Serial.print(nodeUUID[i], HEX);
+
+        // Also show first 3 bytes on LCD to fit 16 chars
+        if (i < 3) {
+            if (nodeUUID[i] < 0x10) myscreen.print('0');
+            myscreen.print(nodeUUID[i], HEX);
+        }
+    }
+    Serial.println();
 }
 
-void loop(){
-  //myscreen.hasbeenPushed();
+// -------------------- Helper: radio init --------------------
 
+void initRadio() {
+    if (!myradio.begin()) {
+        Serial.println("Radio hardware not responding!");
+        myscreen.clear();
+        myscreen.setCursor(0, 0);
+        myscreen.print("Radio ERROR");
+        // Error buzzer loop
+        while (true) {
+            mybuzzer.bback();
+            delay(400);
+        }
+    }
+
+    myradio.setPALevel(RF24_PA_LOW);
+    myradio.setDataRate(RF24_250KBPS);
+    myradio.setChannel(100);
+
+    // Use our node UUID as the reading address (5 bytes) :contentReference[oaicite:5]{index=5}
+    myradio.openReadingPipe(1, nodeUUID);
+    myradio.startListening();
+
+    Serial.println("Radio initialized, listening...");
+    myscreen.clear();
+    myscreen.setCursor(0, 0);
+    myscreen.print("Radio OK");
+    delay(800);
+}
+
+// -------------------- setup() --------------------
+
+void setup() {
+    Serial.begin(9600);
+    printf_begin();  // optional RF24 debug prints
+
+    // LCD init & welcome
+    myscreen.begin(16, 2);
+    myscreen.clear();
+    myscreen.setCursor(0, 0);
+    myscreen.print("Welcome!");
+    myscreen.setCursor(0, 1);
+    myscreen.print("Morse Beeper");
+    mybuzzer.bselect();
+    delay(1500);
+    myscreen.clear();
+
+    // --- Generate random UUID using Entropy --- :contentReference[oaicite:6]{index=6}
+    Entropy.initialize();
+    for (uint8_t i = 0; i < Contact::UUID_LEN; ++i) {
+        nodeUUID[i] = Entropy.randomByte();
+    }
+
+    // Configure our Contact object with the random UUID + fixed name
+    me.setUUID(nodeUUID);
+    me.setName(nodeName);
+
+    // --- Initialize EEPROM schema (flags, node contact, counters) --- :contentReference[oaicite:7]{index=7}
+    if (!memory.hasSchema()) {
+        memory.setSchema();
+        memory.clearContacts();
+        memory.clearMessages();
+        memory.saveNodeInformation(me);
+    }
+    // (Later you can also read back with memory.getNodeUUID()/getNodeName().)
+
+    // Show name + UUID
+    showIdentity();
+    delay(2000);
+
+    // Radio init
+    initRadio();
+
+    // Ready prompt
+    myscreen.clear();
+    myscreen.setCursor(0, 0);
+    myscreen.print("Press buttons");
+    myscreen.setCursor(0, 1);
+    myscreen.print("SEL=demo");
+}
+
+// -------------------- loop() --------------------
+
+void loop() {
+    // ------------ 1) Handle radio receive (stub for now) ------------
+
+    if (myradio.available()) {
+        // When Message.cpp is complete, you can use Message here.
+        // For now, just flush the buffer and notify user.
+        uint8_t dummyBuf[32];
+        while (myradio.available()) {
+            myradio.read(&dummyBuf, sizeof(dummyBuf));
+        }
+
+        myscreen.clear();
+        myscreen.setCursor(0, 0);
+        myscreen.print("Msg received!");
+        mybuzzer.bselect();
+
+        Serial.println("Radio data received (demo).");
+
+        delay(1500);
+        myscreen.clear();
+        myscreen.setCursor(0, 0);
+        myscreen.print("Press buttons");
+        myscreen.setCursor(0, 1);
+        myscreen.print("SEL=demo");
+    }
+
+    // ------------ 2) Handle buttons via LCD.getButtonPress() ------------ :contentReference[oaicite:8]{index=8}
+
+    Button b = myscreen.getButtonPress();
+
+    if (b != NONE) {
+        myscreen.setCursor(0, 1);
+        myscreen.print("                ");  // clear bottom row
+        myscreen.setCursor(0, 1);
+    }
+
+    switch (b) {
+        case LEFT:
+            myscreen.print("LEFT");
+            mybuzzer.bscroll();
+            break;
+
+        case RIGHT:
+            myscreen.print("RIGHT");
+            mybuzzer.bscroll();
+            break;
+
+        case UP: {
+            // Show counts using Memory (once implemented) :contentReference[oaicite:9]{index=9}
+            unsigned short numContacts  = memory.getNumberContacts();
+            unsigned short numMessages  = memory.getNumberMessages();
+            char buf[17];
+            snprintf(buf, sizeof(buf), "C:%u M:%u", numContacts, numMessages);
+            myscreen.print(buf);
+            mybuzzer.bscroll();
+            break;
+        }
+
+        case DOWN:
+            myscreen.print("DOWN");
+            mybuzzer.bback();
+            break;
+
+        case SELECT:
+            // SELECT will eventually be "send message / enter menu".
+            // For now, we just give feedback.
+            myscreen.print("SELECT");
+            mybuzzer.bselect();
+            // Later: create Message and send via RF24 here.
+            break;
+
+        case NONE:
+        default:
+            // no button press
+            break;
+    }
+
+    delay(30);  // small delay to avoid spamming
 }
